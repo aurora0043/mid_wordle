@@ -8,8 +8,7 @@ from pydantic import BaseModel
 
 app = FastAPI(title="Wordle API Server")
 
-# 目前 client 是桌面程式，不受瀏覽器 CORS 限制。若日後改成網頁，
-# 再把 allow_origins 限定為實際前端網址。
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -42,14 +41,14 @@ WORD_BANK = [
     "MEDAL", "MONEY", "MONTH", "MUSIC", "NIGHT", "NOVEL", "NURSE", "OCEAN", "OFFER", "ORDER"
 ]
 
-# 記憶體儲存遊戲狀態
+
 games_db: Dict[str, dict] = {}
 
-# 【任務三】後端勝率統計全域變數
+
 total_games = 0
 total_wins = 0
 
-# 【任務四】允許接收可選參數 hard_mode
+
 class NewGameRequest(BaseModel):
     hard_mode: bool = False
 
@@ -79,7 +78,7 @@ def start_new_game(req: NewGameRequest = NewGameRequest()):
         "status": "PLAYING",
         "attempts": 0,
         "hard_mode": req.hard_mode,
-        "green_hints": [None] * 5,  # 記錄已確定的綠色字母
+        "green_hints": [None] * 5,  
         "won_counted": False
     }
     return {
@@ -101,36 +100,36 @@ def process_guess(req: GuessRequest):
     if len(guess) != 5:
         raise HTTPException(status_code=400, detail="Word must be 5 letters.")
 
-    # 【任務二】字典庫驗證
+
     if guess not in WORD_BANK:
         raise HTTPException(status_code=400, detail="Word not in dictionary")
 
     game_session = games_db[game_id]
     target = game_session["target"]
     
-    # 【任務四】Hard Mode 邏輯驗證
+
     if game_session["hard_mode"]:
         for i in range(5):
             hint = game_session["green_hints"][i]
             if hint is not None and guess[i] != hint:
                 raise HTTPException(status_code=400, detail="Hard Mode: Must use revealed hint at green position")
 
-    feedback = ["absent"] * 5  # 預設灰色 absent
+    feedback = ["absent"] * 5  
     target_letter_counts = {}
 
-    # 1. 先計算目標單字的各字母數量
+   
     for char in target:
         target_letter_counts[char] = target_letter_counts.get(char, 0) + 1
 
-    # 2. 標記綠色 correct
+
     for i in range(5):
         if guess[i] == target[i]:
             feedback[i] = "correct"
             target_letter_counts[guess[i]] -= 1
-            # 記錄綠色提示供下次 Hard Mode 檢查
+            
             game_session["green_hints"][i] = guess[i]
 
-    # 3. 標記黃色 present
+
     for i in range(5):
         if feedback[i] != "correct" and guess[i] in target:
             if target_letter_counts[guess[i]] > 0:
@@ -151,18 +150,18 @@ def process_guess(req: GuessRequest):
         "guess": guess,
         "feedback": feedback,
         "is_correct": is_correct,
-        # 【任務一】猜對或猜滿6次結束時傳回目標單字
+
         "target_word": target if is_game_over else None,
         "stats": get_stats()
     }
 
-# 【任務三】新增 API 回傳勝率數據
+
 @app.get("/api/stats")
 def get_game_stats():
     return get_stats()
 
 if __name__ == "__main__":
     import uvicorn
-    # Render 會透過 PORT 環境變數指定服務埠；本機則預設使用 8000。
+
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run(app, host="0.0.0.0", port=port)
